@@ -1,0 +1,135 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+ xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
+ xmlns:p="http://www.springframework.org/schema/p"
+ xmlns:context="http://www.springframework.org/schema/context"
+ xmlns:aop="http://www.springframework.org/schema/aop" 
+ xmlns:tx="http://www.springframework.org/schema/tx"
+ xmlns:jpa="http://www.springframework.org/schema/data/jpa"
+ xsi:schemaLocation="http://www.springframework.org/schema/beans 
+ 	  http://www.springframework.org/schema/beans/spring-beans.xsd
+      http://www.springframework.org/schema/context
+      http://www.springframework.org/schema/context/spring-context.xsd
+      http://www.springframework.org/schema/tx
+      http://www.springframework.org/schema/tx/spring-tx.xsd
+	  http://www.springframework.org/schema/data/jpa 
+	  http://www.springframework.org/schema/data/jpa/spring-jpa-1.0.xsd
+      http://www.springframework.org/schema/aop
+      http://www.springframework.org/schema/aop/spring-aop-3.1.xsd">
+	<!-- properties files 
+	<context:property-placeholder location="classpath:config.properties"/>-->
+	<!-- component scan config -->
+	
+	<!-- Jpa Entity Manager -->
+	<bean id="entityManagerFactory"
+		class="org.springframework.orm.jpa.LocalContainerEntityManagerFactoryBean">
+		<property name="dataSource" ref="dataSource" />
+		<property name="jpaVendorAdapter" ref="hibernateJpaVendorAdapter" />
+		<property name="packagesToScan" value="com.changhong.provider.*.entity" />
+		<property name="jpaProperties">
+			<props>
+				<prop key="hibernate.show_sql">true</prop>
+				<!-- encache -->
+				<prop key="hibernate.hbm2ddl.auto">${hibernate.hbm2ddl.auto}</prop>
+				<prop key="hibernate.dialect">${hibernate.dialect}</prop>
+				<prop key="hibernate.connection.autocommit">${hibernate.connection.autocommit}</prop>
+				<prop key="hibernate.cache.use_second_level_cache">${hibernate.cache}</prop>
+                <prop key="hibernate.cache.use_query_cache">${hibernate.query.cache}</prop>
+                <prop key="hibernate.cache.provider_class">${hibernate.cache.provider.class}</prop>
+                <prop key="hibernate.cache.region.factory_class">${hibernate.cache.region.factory.class}</prop>
+                <!--useful for debugging-->
+                <prop key="hibernate.generate_statistics">${hibernate.statistics}</prop>
+				<prop key="hibernate.ejb.naming_strategy">org.hibernate.cfg.ImprovedNamingStrategy</prop>
+			</props>
+		</property>
+	</bean>
+	
+	
+	<!-- Adapter Config -->
+	<bean id="hibernateJpaVendorAdapter"
+		class="org.springframework.orm.jpa.vendor.HibernateJpaVendorAdapter">
+		<property name="databasePlatform">
+			<bean factory-method="getDialect"
+				class="org.springside.modules.persistence.Hibernates">
+				<constructor-arg ref="dataSource" />
+			</bean>
+		</property>
+	</bean>
+	
+	<!-- Spring Data Jpa, scan base-package in all extends Repository<T,ID> -->
+	<jpa:repositories base-package="com.changhong.provider.*.dao" 
+		repository-impl-postfix="Impl" 
+		transaction-manager-ref="transactionManager" 
+		entity-manager-factory-ref="entityManagerFactory" />
+		
+	<!-- Transaction config -->
+	<bean id="transactionManager" class="org.springframework.orm.jpa.JpaTransactionManager">
+		<property name="entityManagerFactory" ref="entityManagerFactory" />
+	</bean>
+	
+	<!-- annotation -->
+	<tx:annotation-driven transaction-manager="transactionManager"
+		proxy-target-class="true" />
+		
+	<!-- aspectj -->
+	<aop:aspectj-autoproxy proxy-target-class="true" />
+	
+	<!-- config file -->
+	<!-- <context:property-placeholder
+		ignore-resource-not-found="true" location="classpath*:/config.properties" />-->
+	<!-- 加密时使用 --> 
+    <!--  <bean id="propertyConfig" class="com.changhong.csc.center.bill.util.EncryptablePropertyPlaceholderConfigurer"> 
+        <property name="locations"> 
+            <list> 
+                <value>classpath:config.properties</value> 
+            </list> 
+        </property> 
+    </bean>
+	-->
+	
+	<!-- druid link pool -->
+	<bean id="dataSource" class="com.alibaba.druid.pool.DruidDataSource"
+		destroy-method="close">
+		<property name="driverClassName" value="com.mysql.jdbc.Driver" />
+		<property name="url" value="jdbc:mysql://10.3.30.78:3306/csc_co" />
+		<property name="username" value="csc_developer" />
+		<property name="password" value="123456" />
+		<property name="initialSize" value="8" />
+		<property name="minIdle" value="3" />
+		<property name="maxActive" value="150" />
+
+		<property name="maxWait" value="6000" />
+
+		<property name="timeBetweenEvictionRunsMillis" value="60000" />
+
+		<property name="minEvictableIdleTimeMillis" value="300000" />
+		<property name="validationQuery" value="SELECT 'x'" />
+		<property name="testWhileIdle" value="true" />
+		<property name="testOnBorrow" value="false" />
+		<property name="testOnReturn" value="false" />
+
+		<property name="poolPreparedStatements" value="true" />
+
+		<property name="maxPoolPreparedStatementPerConnectionSize"
+			value="20" />
+
+		<property name="filters" value="stat,config" />
+		<property name="connectionProperties" value="config.decrypt=false" />
+	</bean>
+	
+	<tx:annotation-driven transaction-manager="transactionManager" />
+	
+	<tx:advice id="txAdvice" transaction-manager="transactionManager">
+		<tx:attributes>
+			<tx:method name="find*" read-only="true" />
+			<tx:method name="get*" read-only="true" />
+			<tx:method name="select*" read-only="true" />
+			<tx:method name="*" />
+		</tx:attributes>
+	</tx:advice>
+	<aop:config proxy-target-class="true">
+		<aop:advisor
+			pointcut="execution(* com.changhong.provider.*.service.*ServiceImpl.*(..))"
+			advice-ref="txAdvice" />
+	</aop:config>
+</beans>
